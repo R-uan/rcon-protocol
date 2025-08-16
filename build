@@ -1,0 +1,10 @@
+#!/bin/bash
+
+if [ ! -d "./out/" ]; then
+	mkdir out
+fi
+
+cmake -S . -B out -G "Ninja"
+cmake --build out
+echo "---------------- Running built project -----------------"
+./out/rnocProtocol
