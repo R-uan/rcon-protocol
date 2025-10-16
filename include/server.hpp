@@ -1,31 +1,33 @@
 #pragma once
 
 #include "client.hpp"
+#include "protocol.hpp"
+#include <memory>
 #include <mutex>
-#include <thread>
+#include <sys/epoll.h>
 #include <unordered_map>
 
-struct Server {
-  int port;
-  int server_fd;
+class RconServer {
+private:
+  int epollFd;
+  int serverFd;
+  std::mutex epollMtx;
 
-  std::unordered_map<int, Client> clients;
+  std::shared_ptr<Protocol> protocol;
+  std::unordered_map<int, std::shared_ptr<ClientState>> clients;
 
-  bool listen_state;
-  std::thread listening_thread;
-  
+  RconServer(int fd) : serverFd(fd) {
+    this->epollFd = epoll_create1(0);
+    epoll_event ev;
+    ev.events = EPOLLIN;
+    ev.data.fd = this->serverFd;
+    epoll_ctl(this->epollFd, EPOLL_CTL_ADD, this->serverFd, &ev);
+  }
 
-  mutable std::mutex fd_mutex;
-  mutable std::mutex listen_mx;  
+  void add_client(int fd);
+  void remove_client(int fd);
 
-  Server(int port, int server_fd) :
-    server_fd(server_fd),
-    port(port),
-    listening_thread(nullptr),
-    listen_state(false)
-    { }
-
-  static Server create_instance(int port);
-  void open_server();
+public:
   void listen();
+  static RconServer create_instance(int port);
 };

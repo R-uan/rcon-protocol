@@ -1,8 +1,7 @@
-#include "packet.hpp"
+#include "server.hpp"
 
 int main() {
-  std::string body = "Hello World!";
-  auto testPacket = Packet::create_packet(1, PacketType::SERVERDATA_EXECCOMAND, body);
-  auto bytes = testPacket.build_packet();
+  auto server = RconServer::create_instance(3000);
+  server.listen();
   return 0;
 }

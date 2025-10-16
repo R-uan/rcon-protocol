@@ -23,7 +23,7 @@ struct Packet {
   std::vector<unsigned char> build_packet();
   static std::optional<Packet> parse_bytes(char* packet, int packetSize);
   static Packet create_packet(const int id, const int type, std::string body);
-
+  
   Packet(int32_t size, int32_t id, int32_t type, std::string body) :
     size(size), id(id), type(type), body(body), terminator(0x00) { }
 };
