@@ -1,6 +1,12 @@
 #include "client.hpp"
-#include <mutex>
+#include <iostream>
+#include <sys/socket.h>
 
-void ClientState::handle_packet(Packet packet) {
-  
+bool ClientState::send_packet(Packet packet) {
+  const auto data = packet.data.data();
+  if (send(this->fd, data, sizeof(data), 0) == -1) {
+    std::cerr << "Failed to send data to client" << std::endl;
+    return false;
+  }
+  return true;
 }

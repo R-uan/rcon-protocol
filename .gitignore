@@ -12,6 +12,8 @@
 *.obj
 /out
 /.cache
+/build/
+build/
 # Precompiled Headers
 *.gch
 *.pch

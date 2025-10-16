@@ -26,6 +26,7 @@ private:
 
   void add_client(int fd);
   void remove_client(int fd);
+  void read_incoming(std::shared_ptr<ClientState> client);
 
 public:
   void listen();

@@ -2,18 +2,19 @@
 #include "packet.hpp"
 #include "server.hpp"
 #include "thread_pool.hpp"
+#include "utilities.hpp"
 #include <arpa/inet.h>
 #include <bits/socket.h>
 #include <iostream>
 #include <memory>
 #include <mutex>
-#include <optional>
 #include <sys/epoll.h>
 #include <sys/socket.h>
 #include <sys/types.h>
 #include <system_error>
 #include <unistd.h>
 #include <utility>
+#include <vector>
 
 RconServer RconServer::create_instance(int port) {
   const int fd = socket(AF_INET, SOCK_STREAM, 0);
@@ -57,33 +58,62 @@ void RconServer::listen() {
           this->add_client(newClientFd);
         }
       } else {
-        char buffer[4096];
-        ssize_t readb = recv(fd, buffer, sizeof(buffer), 0);
-
-        // Look for the ClientState associated with this fd.
         auto it = this->clients.find(fd);
         if (it == this->clients.end())
           continue;
-        auto client_ptr = it->second.get();
-
-        if (readb <= 0) {
-          // if no bytes is read the client is discarded.
-          this->remove_client(fd);
-          continue;
-        }
-
-        auto packet = Packet::parse_bytes(buffer, readb);
-        // close connection in case of invalid packet
-        if (!packet.has_value()) {
-          this->remove_client(fd);
-          continue;
-        }
-
-        threadPool.enqueue([client_ptr, packet]() {
-          client_ptr->handle_packet(packet.value());
-        });
+        std::shared_ptr<ClientState> client_ptr = it->second;
+        threadPool.enqueue(
+            [this, client_ptr]() { this->read_incoming(client_ptr); });
       }
     }
+  }
+}
+
+int read_packet_size(const std::shared_ptr<ClientState> client) {
+  std::vector<uint8_t> buff{};
+  buff.resize(4);
+
+  if (recv(client->fd, buff.data(), 4, 0) == -1) {
+    std::cerr << "Could not read packet" << std::endl;
+    return -1;
+  }
+
+  return u32_from_le(buff);
+}
+
+void RconServer::read_incoming(std::shared_ptr<ClientState> client) {
+  size_t packetSize = read_packet_size(client);
+  if (packetSize <= 10)
+    return;
+
+  std::vector<uint8_t> buffer{};
+  buffer.resize(packetSize);
+
+  if (recv(client->fd, buffer.data(), packetSize, 0) == -1) {
+    std::cerr << "Could not get packet from client" << std::endl;
+    return;
+  }
+
+  // Skips the first 8 bytes (id and type) and the last 2 (null bytes)
+  std::string packetBody(&buffer[8], &buffer[buffer.size() - 2]);
+  int pid = u32_from_le({buffer[0], buffer[1], buffer[2], buffer[3]});
+  int type = u32_from_le({buffer[4], buffer[5], buffer[6], buffer[7]});
+
+  Packet responsePacket{};
+
+  if (!client->authenticated) {
+    if (packetBody == "password") {
+      std::cout << "Client authenticated" << std::endl;
+      responsePacket = create_packet("", pid, SERVERDATA::AUTH_RESPONSE);
+    } else {
+      std::cout << "Authentication failed" << std::endl;
+      responsePacket = create_packet("", -1, SERVERDATA::AUTH_RESPONSE);
+    }
+  }
+
+  if (client->send_packet(responsePacket)) {
+    std::cout << "Packet was sent to client" << std::endl;
+    return;
   }
 }
 

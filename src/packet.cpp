@@ -1,40 +1,21 @@
 #include "packet.hpp"
-#include "tools.hpp"
-#include <cstdint>
-#include <optional>
-#include <string>
-#include <vector>
+#include <cstring>
 
-std::optional<Packet> Packet::parse_bytes(char* packet, int packetSize) {
-  if (packetSize < 14) return std::nullopt;
-  int32_t size = *((int32_t*)packet);
-  int32_t id = *((int32_t*)packet + 4);
-  int32_t type = *((int32_t*) packet + 8);
-  std::string body(packet + 12, packetSize - 12); 
-  return Packet(size, id, type, body);
-}
+Packet create_packet(const std::string_view data, int32_t id, int32_t type) {
+  const int32_t dataSize = static_cast<int32_t>(data.size() + 10);
 
-Packet Packet::create_packet(const int32_t id, const int32_t type, std::string body) {
-  int32_t size = body.length() + 9;
-  return Packet(size, id, type, body);
-}
+  std::vector<char> tempData(dataSize + 4);
 
-std::vector<unsigned char> Packet::build_packet() {
-  unsigned char bytes[4];
-  std::vector<unsigned char> packet; 
-  auto bodyBytes = string_to_bytes(body);
+  std::memcpy(tempData.data() + 0, &dataSize, sizeof(dataSize));
+  std::memcpy(tempData.data() + 4, &id, sizeof(id));
+  std::memcpy(tempData.data() + 8, &type, sizeof(type));
+  std::memcpy(tempData.data() + 12, data.data(), data.size());
 
-  int_to_bytes(bodyBytes.size() + 9, bytes);
-  packet.insert(packet.end(), bytes, bytes + 4);
-  
-  int_to_bytes(id, bytes);  
-  packet.insert(packet.end(), bytes, bytes + 4);
+  Packet packet;
+  packet.id = id;
+  packet.size = dataSize;
+  packet.type = type;
+  packet.data = tempData;
 
-  int_to_bytes(type,bytes);
-  packet.insert(packet.end(), bytes, bytes + 4);
-
-  packet.insert(packet.end(), bodyBytes.begin(), bodyBytes.end());
-  packet.push_back(0x00);
-
-  return packet;  
+  return packet;
 }
