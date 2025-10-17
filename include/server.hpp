@@ -1,7 +1,6 @@
 #pragma once
 
 #include "client.hpp"
-#include "protocol.hpp"
 #include <memory>
 #include <mutex>
 #include <sys/epoll.h>
@@ -12,9 +11,7 @@ private:
   int epollFd;
   int serverFd;
   std::mutex epollMtx;
-
-  std::shared_ptr<Protocol> protocol;
-  std::unordered_map<int, std::shared_ptr<ClientState>> clients;
+  std::unordered_map<int, std::shared_ptr<Client>> clients;
 
   RconServer(int fd) : serverFd(fd) {
     this->epollFd = epoll_create1(0);
@@ -26,7 +23,8 @@ private:
 
   void add_client(int fd);
   void remove_client(int fd);
-  void read_incoming(std::shared_ptr<ClientState> client);
+  void read_incoming(std::shared_ptr<Client> client);
+  int read_packet_size(const std::shared_ptr<Client> client);
 
 public:
   void listen();

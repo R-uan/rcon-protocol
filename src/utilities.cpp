@@ -1,4 +1,4 @@
-#include "packet.hpp"
+#include "utilities.hpp"
 #include <cstring>
 
 Packet create_packet(const std::string_view data, int32_t id, int32_t type) {
@@ -10,6 +10,8 @@ Packet create_packet(const std::string_view data, int32_t id, int32_t type) {
   std::memcpy(tempData.data() + 4, &id, sizeof(id));
   std::memcpy(tempData.data() + 8, &type, sizeof(type));
   std::memcpy(tempData.data() + 12, data.data(), data.size());
+  tempData.push_back('\x00');
+  tempData.push_back('\x00');
 
   Packet packet;
   packet.id = id;

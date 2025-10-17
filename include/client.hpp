@@ -1,15 +1,14 @@
 #pragma once
 
-#include "packet.hpp"
+#include "utilities.hpp"
 #include <mutex>
 
-struct ClientState {
+struct Client {
   int fd;
+  std::mutex mtx;
   bool authenticated{false};
 
-  std::mutex mtx;
-
-  ClientState(int fd) : fd(fd) {}
+  Client(int fd) : fd(fd) {}
 
   bool send_packet(Packet packet);
 };

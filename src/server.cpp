@@ -1,5 +1,5 @@
 #include "client.hpp"
-#include "packet.hpp"
+#include "commands.hpp"
 #include "server.hpp"
 #include "thread_pool.hpp"
 #include "utilities.hpp"
@@ -61,7 +61,7 @@ void RconServer::listen() {
         auto it = this->clients.find(fd);
         if (it == this->clients.end())
           continue;
-        std::shared_ptr<ClientState> client_ptr = it->second;
+        std::shared_ptr<Client> client_ptr = it->second;
         threadPool.enqueue(
             [this, client_ptr]() { this->read_incoming(client_ptr); });
       }
@@ -69,7 +69,7 @@ void RconServer::listen() {
   }
 }
 
-int read_packet_size(const std::shared_ptr<ClientState> client) {
+int RconServer::read_packet_size(const std::shared_ptr<Client> client) {
   std::vector<uint8_t> buff{};
   buff.resize(4);
 
@@ -81,7 +81,7 @@ int read_packet_size(const std::shared_ptr<ClientState> client) {
   return u32_from_le(buff);
 }
 
-void RconServer::read_incoming(std::shared_ptr<ClientState> client) {
+void RconServer::read_incoming(std::shared_ptr<Client> client) {
   size_t packetSize = read_packet_size(client);
   if (packetSize <= 10)
     return;
@@ -99,21 +99,34 @@ void RconServer::read_incoming(std::shared_ptr<ClientState> client) {
   int pid = u32_from_le({buffer[0], buffer[1], buffer[2], buffer[3]});
   int type = u32_from_le({buffer[4], buffer[5], buffer[6], buffer[7]});
 
-  Packet responsePacket{};
-
   if (!client->authenticated) {
     if (packetBody == "password") {
+      client->authenticated = true;
       std::cout << "Client authenticated" << std::endl;
-      responsePacket = create_packet("", pid, SERVERDATA::AUTH_RESPONSE);
+      auto authResponse = create_packet("", pid, SERVERDATA::AUTH_RESPONSE);
+      auto responseValue = create_packet("", pid, SERVERDATA::RESPONSE_VALUE);
+      client->send_packet(responseValue);
+      client->send_packet(authResponse);
     } else {
       std::cout << "Authentication failed" << std::endl;
-      responsePacket = create_packet("", -1, SERVERDATA::AUTH_RESPONSE);
+      auto authResponse = create_packet("", -1, SERVERDATA::AUTH_RESPONSE);
+      auto responseValue = create_packet("", -1, SERVERDATA::RESPONSE_VALUE);
+      client->send_packet(responseValue);
+      client->send_packet(authResponse);
+      this->remove_client(client->fd);
     }
-  }
+  } else {
+    Packet responsePacket{};
+    if (type == SERVERDATA::EXECCOMAND) {
+      auto response = run_command(packetBody);
+      responsePacket = create_packet(response, pid, SERVERDATA::RESPONSE_VALUE);
+      std::cout << "command executed" << std::endl;
+    } else {
+      responsePacket = create_packet("", -1, SERVERDATA::RESPONSE_VALUE);
+      std::cout << "invalid packet type" << std::endl;
+    }
 
-  if (client->send_packet(responsePacket)) {
-    std::cout << "Packet was sent to client" << std::endl;
-    return;
+    client->send_packet(responsePacket);
   }
 }
 
@@ -125,7 +138,7 @@ void RconServer::add_client(int fd) {
     std::unique_lock lock(this->epollMtx);
     epoll_ctl(this->epollFd, EPOLL_CTL_ADD, fd, &ev);
   }
-  auto client = std::make_shared<ClientState>(fd);
+  auto client = std::make_shared<Client>(fd);
   this->clients[fd] = std::move(client);
 }
 

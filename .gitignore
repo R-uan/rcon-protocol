@@ -10,10 +10,9 @@
 *.lo
 *.o
 *.obj
-/out
 /.cache
-/build/
-build/
+/build
+
 # Precompiled Headers
 *.gch
 *.pch
@@ -37,6 +36,7 @@ build/
 *.exe
 *.out
 *.app
+test
 
 ### CMake ###
 CMakeFiles
