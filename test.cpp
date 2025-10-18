@@ -1,7 +1,9 @@
 #include <arpa/inet.h>
+#include <chrono>
 #include <cstdint>
 #include <cstring>
 #include <iostream>
+#include <thread>
 #include <unistd.h>
 
 int main() {
@@ -52,8 +54,33 @@ int main() {
     std::cout << "Sent " << sent << " bytes." << std::endl;
   }
 
+  std::this_thread::sleep_for(std::chrono::seconds(2));
+
+  uint8_t packet2[] = {// Size = 17 -> 0x11 0x00 0x00 0x00
+                       0x11, 0x00, 0x00, 0x00,
+
+                       // ID = 1
+                       0x01, 0x00, 0x00, 0x00,
+
+                       // Type = 2
+                       0x02, 0x00, 0x00, 0x00,
+
+                       // Body: "echo hi\0"
+                       'e', 'c', 'h', 'o', ' ', 'h', 'i', 0x00,
+
+                       // Empty string terminator
+                       0x00};
+
+  ssize_t sent2 = send(sock, packet2, sizeof(packet2), 0);
+  if (sent2 < 0) {
+    perror("Send failed");
+  } else {
+    std::cout << "Sent " << sent2 << " bytes." << std::endl;
+  }
+
+  std::this_thread::sleep_for(std::chrono::seconds(2));
+
   close(sock);
   std::cout << "Connection closed." << std::endl;
-
   return 0;
 }

@@ -23,7 +23,7 @@ private:
 
   void add_client(int fd);
   void remove_client(int fd);
-  void read_incoming(std::shared_ptr<Client> client);
+  int read_incoming(std::shared_ptr<Client> client);
   int read_packet_size(const std::shared_ptr<Client> client);
 
 public:
