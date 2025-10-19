@@ -21,3 +21,38 @@ Packet create_packet(const std::string_view data, int32_t id, int32_t type) {
 
   return packet;
 }
+
+void Logger::stop() {
+  if (this->running.exchange(false)) {
+    this->cv.notify_all();
+    if (this->thread.joinable())
+      this->thread.join();
+  }
+}
+
+void Logger::log(std::string msg) {
+  {
+    std::lock_guard lock(this->queueMtx);
+    this->logQueue.push(msg);
+  }
+  this->cv.notify_one();
+}
+
+void Logger::worker() {
+  std::unique_lock lock(this->queueMtx);
+  while (this->running.load()) {
+    this->cv.wait(lock, [this]() {
+      return !this->running.load() || !this->logQueue.empty();
+    });
+
+    if (!this->running.load() && this->logQueue.empty())
+      return;
+
+    std::string msg = std::move(this->logQueue.front());
+    this->logQueue.pop();
+
+    lock.unlock();
+    std::cout << msg << '\n';
+    lock.lock();
+  }
+}

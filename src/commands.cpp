@@ -1,13 +1,9 @@
 #include "commands.hpp"
-#include <iostream>
 #include <string_view>
 
 using namespace std;
 
-string_view echo(string_view arg) {
-  std::cout << "[SERVER] echo " << arg << std::endl;
-  return arg;
-}
+string_view echo(string_view arg) { return arg; }
 
 string_view run_command(string_view input) {
   size_t pos = input.find(' ');

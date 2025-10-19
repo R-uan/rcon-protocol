@@ -3,7 +3,6 @@
 #include <condition_variable>
 #include <cstddef>
 #include <functional>
-#include <iostream>
 #include <mutex>
 #include <queue>
 #include <thread>
@@ -33,7 +32,6 @@ public:
   }
 
   template <typename F> inline void enqueue(F &&f) {
-    std::cout << "[THREAD POOL] new task enqueued" << std::endl;
     {
       std::unique_lock lock(this->mtx);
       this->tasks.emplace(std::forward<F>(f));
